@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { Scene3D } from "./Scene3D";
+import * as THREE from "three";
+import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import {
   Box,
@@ -24,52 +27,116 @@ import {
 } from "lucide-react";
 
 const RoboTypeWorkspace = () => {
-  // State to simulate UI interactivity
+  // State for UI interactivity
   const [prompt, setPrompt] = useState("");
-  const [rotation, setRotation] = useState({ x: 60, z: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [currentView, setCurrentView] = useState("TOP");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const cameraRef = useRef<THREE.Camera | null>(null);
 
-  // Right-click drag handler for orbiting
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 2) {
-      // Right mouse button
-      e.preventDefault();
-      setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      const deltaX = e.clientX - dragStart.x;
-      const deltaY = e.clientY - dragStart.y;
-      setRotation((prev) => ({
-        x: Math.max(10, Math.min(90, prev.x - deltaY * 0.5)),
-        z: prev.z + deltaX * 0.5,
-      }));
-      setDragStart({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // View cube click handler
+  // View cube click handler - will control camera via refs
   const handleViewChange = (view: string) => {
     setCurrentView(view);
-    const views: Record<string, { x: number; z: number }> = {
-      TOP: { x: 90, z: 0 },
-      FRONT: { x: 0, z: 0 },
-      RIGHT: { x: 0, z: -90 },
-      BACK: { x: 0, z: 180 },
-      LEFT: { x: 0, z: 90 },
-      BOTTOM: { x: -90, z: 0 },
+    // Camera positions for different views (isometric-like distances)
+    const views: Record<
+      string,
+      { position: [number, number, number]; target: [number, number, number] }
+    > = {
+      TOP: { position: [0, 10, 0], target: [0, 0, 0] },
+      FRONT: { position: [0, 0, 10], target: [0, 0, 0] },
+      RIGHT: { position: [10, 0, 0], target: [0, 0, 0] },
+      BACK: { position: [0, 0, -10], target: [0, 0, 0] },
+      LEFT: { position: [-10, 0, 0], target: [0, 0, 0] },
+      BOTTOM: { position: [0, -10, 0], target: [0, 0, 0] },
     };
-    if (views[view]) {
-      setRotation(views[view]);
+
+    if (views[view] && controlsRef.current && cameraRef.current) {
+      const { position, target } = views[view];
+      // Smoothly animate camera to new position
+      const startPos = cameraRef.current.position.clone();
+      const endPos = new THREE.Vector3(...position);
+      const startTarget = controlsRef.current.target.clone();
+      const endTarget = new THREE.Vector3(...target);
+
+      let progress = 0;
+      const animate = () => {
+        progress += 0.05;
+        if (progress >= 1) {
+          cameraRef.current!.position.set(...position);
+          controlsRef.current!.target.set(...target);
+          controlsRef.current!.update();
+          return;
+        }
+        cameraRef.current!.position.lerpVectors(startPos, endPos, progress);
+        controlsRef.current!.target.lerpVectors(
+          startTarget,
+          endTarget,
+          progress
+        );
+        controlsRef.current!.update();
+        requestAnimationFrame(animate);
+      };
+      animate();
+    }
+  };
+
+  // Zoom controls
+  const handleZoomIn = () => {
+    if (controlsRef.current && cameraRef.current) {
+      const direction = new THREE.Vector3();
+      cameraRef.current.getWorldDirection(direction);
+      cameraRef.current.position.add(direction.multiplyScalar(-1));
+      controlsRef.current.update();
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (controlsRef.current && cameraRef.current) {
+      const direction = new THREE.Vector3();
+      cameraRef.current.getWorldDirection(direction);
+      cameraRef.current.position.add(direction.multiplyScalar(1));
+      controlsRef.current.update();
+    }
+  };
+
+  const handleFitView = () => {
+    if (controlsRef.current && cameraRef.current) {
+      // Reset to default isometric view
+      cameraRef.current.position.set(5, 5, 5);
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  };
+
+  // Handle prompt submission
+  const handleGenerate = async () => {
+    if (!prompt.trim() || isGenerating) return;
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/design/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!response.ok) throw new Error("Generation failed");
+
+      const data = await response.json();
+      // TODO: Add generated 3D model to scene
+      console.log("Generated design:", data);
+    } catch (error) {
+      console.error("Error generating design:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Handle Enter key
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleGenerate();
     }
   };
 
@@ -117,51 +184,15 @@ const RoboTypeWorkspace = () => {
       </header>
 
       {/* 2. MAIN WORKSPACE AREA */}
-      <main
-        className="flex-1 relative overflow-hidden bg-[#f8fafc]"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        {/* GRID BACKGROUND (Simulating the 3D Workplane from Reference) */}
-        {/* In production, this div is where <Canvas> from @react-three/fiber goes */}
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden perspective-[1000px] select-none">
-          {/* The Square Grid Workplane */}
-          <div
-            className="w-[600px] h-[600px] bg-white shadow-2xl border-2 border-slate-300"
-            style={{
-              transform: `rotateX(${rotation.x}deg) rotateZ(${rotation.z}deg) translateZ(-100px)`,
-              backgroundImage: `
-                 linear-gradient(to right, rgba(59, 130, 246, 0.3) 1px, transparent 1px),
-                 linear-gradient(to bottom, rgba(59, 130, 246, 0.3) 1px, transparent 1px)
-               `,
-              backgroundSize: "20px 20px",
-              transition: isDragging ? "none" : "transform 0.1s ease-out",
-            }}
-          >
-            {/* Center Origin Marker */}
-            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-blue-400/60"></div>
-            <div className="absolute top-0 left-1/2 h-full w-0.5 bg-red-400/60"></div>
-
-            {/* Workplane Labels */}
-            <div className="absolute bottom-2 left-2 text-blue-400/60 text-xs font-medium">
-              Workplane
-            </div>
-            <div className="absolute bottom-2 right-2 text-blue-400/60 text-xs font-medium">
-              Millimeters
-            </div>
-
-            {/* Simulated Object Placeholder */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="w-32 h-32 bg-blue-500/20 border-2 border-blue-500 rounded-lg backdrop-blur-sm flex items-center justify-center relative">
-                <span className="text-blue-600 font-mono text-xs">Origin</span>
-                {/* Z-Axis Line */}
-                <div className="absolute bottom-1/2 left-1/2 w-0.5 h-32 bg-green-400 origin-bottom -translate-x-1/2 transform -rotate-x-90"></div>
-              </div>
-            </div>
-          </div>
+      <main className="flex-1 relative overflow-hidden bg-[#f8fafc]">
+        {/* Real 3D Scene */}
+        <div className="absolute inset-0">
+          <Scene3D
+            controlsRef={controlsRef}
+            cameraRef={cameraRef}
+            onViewChange={handleViewChange}
+            currentView={currentView}
+          />
         </div>
 
         {/* 3. FLOATING UI CONTROLS */}
@@ -197,29 +228,31 @@ const RoboTypeWorkspace = () => {
 
         {/* Left Side: View Controls (Like Tinkercad) */}
         <div className="absolute top-1/2 left-4 -translate-y-1/2 flex flex-col gap-4">
-          {/* View Cube - Functional */}
-          <div
-            className="w-16 h-16 bg-white border-2 border-slate-200 shadow-sm rounded-lg flex items-center justify-center font-bold text-[10px] text-slate-400 cursor-pointer hover:border-blue-400 hover:text-blue-500 transition-all transform hover:scale-105"
-            style={{
-              transform: `rotate(45deg) ${currentView === "TOP" ? "scale(1.05)" : ""}`,
-              borderColor: currentView === "TOP" ? "#3b82f6" : undefined,
-              color: currentView === "TOP" ? "#3b82f6" : undefined,
-            }}
-            onClick={() => handleViewChange("TOP")}
-          >
-            <span style={{ transform: "rotate(-45deg)" }}>TOP</span>
-          </div>
-
-          {/* Zoom Controls - Square Layout (2x2) */}
-          <div className="bg-white p-1 rounded-lg shadow-sm border border-slate-200 grid grid-cols-2 gap-1 w-20">
-            <button className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center">
+          {/* View Cube is now a 3D model in the scene, so we just show zoom controls here */}
+          {/* Zoom Controls - Vertical Layout */}
+          <div className="bg-white p-1 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-1">
+            <button
+              onClick={handleFitView}
+              className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center"
+              title="Fit View"
+            >
+              <Maximize size={16} />
+            </button>
+            <div className="h-px bg-slate-100 my-0.5"></div>
+            <button
+              onClick={handleZoomIn}
+              className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center"
+              title="Zoom In"
+            >
               <Plus size={16} />
             </button>
-            <button className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center">
+            <div className="h-px bg-slate-100 my-0.5"></div>
+            <button
+              onClick={handleZoomOut}
+              className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center"
+              title="Zoom Out"
+            >
               <Minus size={16} />
-            </button>
-            <button className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center col-span-2">
-              <Maximize size={16} />
             </button>
           </div>
         </div>
@@ -255,13 +288,19 @@ const RoboTypeWorkspace = () => {
                 type="text"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder="Describe a change (e.g. 'Add a 4mm mounting hole to the left corner')..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all"
                 autoFocus
+                disabled={isGenerating}
               />
             </div>
             {/* Action Button */}
-            <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10">
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || !prompt.trim()}
+              className="bg-slate-900 text-white p-3 rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <ArrowRight size={16} />
             </button>
           </div>
@@ -283,4 +322,3 @@ const RoboTypeWorkspace = () => {
 };
 
 export default RoboTypeWorkspace;
-
