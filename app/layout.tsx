@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "RoboForge - Intelligent CAD for Robotics",
-  description: "Turn rough sketches and prompts into manufacturable CAD models, instantly.",
+  description:
+    "Turn rough sketches and prompts into manufacturable CAD models, instantly.",
 };
 
 export default function RootLayout({
@@ -17,4 +18,3 @@ export default function RootLayout({
     </html>
   );
 }
-
