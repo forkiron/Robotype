@@ -20,8 +20,7 @@ export const RobotArm = (props: any) => {
         Math.sin(t / 2) * 0.1 - 0.2; // Shoulder
       if ((group.current.children[1] as THREE.Group).children[0]) {
         (
-          (group.current.children[1] as THREE.Group)
-            .children[0] as THREE.Group
+          (group.current.children[1] as THREE.Group).children[0] as THREE.Group
         ).rotation.x = Math.sin(t / 1.5) * 0.1 + 0.5; // Elbow
       }
     }
@@ -134,4 +133,3 @@ export const RobotArm = (props: any) => {
     </group>
   );
 };
-

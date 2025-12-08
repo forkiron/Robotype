@@ -8,9 +8,13 @@ import { useEffect, useRef, RefObject } from "react";
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-function CameraController({ cameraRef }: { cameraRef: RefObject<THREE.Camera> }) {
+function CameraController({
+  cameraRef,
+}: {
+  cameraRef: RefObject<THREE.Camera>;
+}) {
   const { camera } = useThree();
-  
+
   useEffect(() => {
     if (cameraRef) {
       cameraRef.current = camera;
@@ -27,7 +31,12 @@ interface Scene3DProps {
   currentView?: string;
 }
 
-export function Scene3D({ controlsRef, cameraRef, onViewChange, currentView }: Scene3DProps) {
+export function Scene3D({
+  controlsRef,
+  cameraRef,
+  onViewChange,
+  currentView,
+}: Scene3DProps) {
   const orbitControlsRef = useRef<any>(null);
 
   useEffect(() => {
@@ -47,12 +56,12 @@ export function Scene3D({ controlsRef, cameraRef, onViewChange, currentView }: S
     >
       <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={50} />
       <CameraController controlsRef={controlsRef} cameraRef={cameraRef} />
-      
+
       <ambientLight intensity={0.6} />
       <directionalLight position={[10, 10, 5]} intensity={1} />
       <directionalLight position={[-10, 10, -5]} intensity={0.5} />
       <pointLight position={[0, 10, 0]} intensity={0.3} />
-      
+
       <OrbitControls
         ref={orbitControlsRef}
         enablePan={true}
@@ -71,12 +80,14 @@ export function Scene3D({ controlsRef, cameraRef, onViewChange, currentView }: S
         // Don't auto-rotate or interfere with view cube
         autoRotate={false}
       />
-      
+
       <Workplane />
       {onViewChange && (
-        <ViewCube onViewChange={onViewChange} currentView={currentView || "FRONT"} />
+        <ViewCube
+          onViewChange={onViewChange}
+          currentView={currentView || "FRONT"}
+        />
       )}
     </Canvas>
   );
 }
-

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     // TODO: Integrate with AI service for CAD generation
     // This will call the server/services/ai-service.ts
-    
+
     // For now, return a mock response
     return NextResponse.json({
       success: true,
@@ -32,4 +32,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

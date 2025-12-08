@@ -23,7 +23,7 @@ export function ViewCube({ onViewChange, currentView }: ViewCubeProps) {
       const x = -size.width / 2 + 80;
       const y = size.height / 2 - 80;
       const z = 0.5;
-      
+
       // Convert screen coordinates to world position
       const vector = new THREE.Vector3(
         (x / size.width) * 2 - 1,
@@ -31,11 +31,13 @@ export function ViewCube({ onViewChange, currentView }: ViewCubeProps) {
         z
       );
       vector.unproject(camera);
-      
+
       const dir = vector.sub(camera.position).normalize();
       const distance = 3; // Distance from camera
-      groupRef.current.position.copy(camera.position).add(dir.multiplyScalar(distance));
-      
+      groupRef.current.position
+        .copy(camera.position)
+        .add(dir.multiplyScalar(distance));
+
       // Make it always face the camera
       groupRef.current.lookAt(camera.position);
     }
@@ -221,7 +223,9 @@ export function ViewCube({ onViewChange, currentView }: ViewCubeProps) {
 
       {/* Cube edges for visual structure */}
       <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(faceSize, faceSize, faceSize)]} />
+        <edgesGeometry
+          args={[new THREE.BoxGeometry(faceSize, faceSize, faceSize)]}
+        />
         <lineBasicMaterial color="#94a3b8" opacity={0.3} transparent />
       </lineSegments>
     </group>

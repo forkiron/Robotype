@@ -12,7 +12,7 @@ export function Workplane() {
 
   // Calculate grid size based on camera distance
   const distance = camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
-  
+
   // Update grid cell size based on distance
   // Closer = smaller cells (finer grid), farther = larger cells
   const cellSize = useMemo(() => {
@@ -25,7 +25,9 @@ export function Workplane() {
 
   // Force re-render when distance changes significantly
   useFrame(() => {
-    const currentDistance = camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
+    const currentDistance = camera.position.distanceTo(
+      new THREE.Vector3(0, 0, 0)
+    );
     if (Math.abs(currentDistance - lastDistance.current) > 0.5) {
       lastDistance.current = currentDistance;
     }
@@ -48,7 +50,7 @@ export function Workplane() {
         fadeDistance={50}
         fadeStrength={1}
       />
-      
+
       {/* Workplane Labels */}
       <Text
         position={[-20, 0.1, -20]}
@@ -61,7 +63,7 @@ export function Workplane() {
       >
         Workplane
       </Text>
-      
+
       <Text
         position={[20, 0.1, 20]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -73,7 +75,7 @@ export function Workplane() {
       >
         Millimeters
       </Text>
-      
+
       {/* Origin marker */}
       <mesh position={[0, 0.01, 0]}>
         <boxGeometry args={[0.1, 0.02, 0.1]} />

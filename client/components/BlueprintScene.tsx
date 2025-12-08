@@ -19,7 +19,11 @@ export const BlueprintScene = () => {
         {/* LIGHTING */}
         <ambientLight intensity={0.5} color="#e0f2fe" />
         <pointLight position={[10, 10, 10]} intensity={1} color="#38bdf8" />
-        <pointLight position={[-10, -10, -10]} intensity={0.5} color="#0284c7" />
+        <pointLight
+          position={[-10, -10, -10]}
+          intensity={0.5}
+          color="#0284c7"
+        />
         <Environment preset="city" />
 
         {/* CONTROLS & FLOATING */}
@@ -56,4 +60,3 @@ export const BlueprintScene = () => {
     </div>
   );
 };
-
