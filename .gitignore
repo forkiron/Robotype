@@ -33,6 +33,13 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Documentation files (keep locally, don't commit)
+README.md
+TESTING.md
+AGENTIC_WORKFLOW.md
+SETUP.md
+*.md
+
 # vercel
 .vercel
 
