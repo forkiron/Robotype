@@ -8,7 +8,7 @@ import { DesignRecipe } from "../../shared/types/component-types";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface ArchitectAgentConfig {
-  model?: "gemini-2.0-flash" | "gemini-1.5-pro" | "gemini-pro";
+  model: "gemini-2.0-flash";
   apiKey?: string;
 }
 
@@ -18,8 +18,11 @@ export class ArchitectAgent {
 
   constructor(config: ArchitectAgentConfig = {}) {
     this.config = {
-      model: config.model || "gemini-1.5-flash", // Cheapest model
-      apiKey: config.apiKey || process.env.GOOGLE_API_KEY,
+      model: config.model || "gemini-2.0-flash", // Use gemini-2.0-flash (cheapest and fastest)
+      apiKey:
+        config.apiKey ||
+        process.env.GOOGLE_API_KEY ||
+        process.env.GEMINI_API_KEY,
     };
 
     // Initialize Google AI SDK
@@ -112,22 +115,16 @@ Output the JSON recipe now:`;
     }
 
     try {
-      // Get the model (using cheapest: gemini-1.5-flash)
+      // Get the model (using gemini-2.0-flash - cheapest and fastest, matching working example)
+      const modelName = this.config.model || "gemini-2.0-flash";
       const model = this.genAI.getGenerativeModel({
-        model: this.config.model || "gemini-1.5-flash",
-        generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-          responseMimeType: "application/json", // Force JSON output
-        },
+        model: modelName,
       });
 
-      // Combine system and user prompts for Gemini
+      // Combine system and user prompts into one string (matching working example pattern)
       const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
-      // Generate content
+      // Generate content (same pattern as working example)
       const result = await model.generateContent(fullPrompt);
       const response = await result.response;
       const text = response.text();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { orchestrator } from "@/server/services/orchestrator";
+import { orchestrator } from "../../../../server/services/orchestrator";
 
 export async function POST(request: NextRequest) {
   try {

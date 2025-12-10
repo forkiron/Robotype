@@ -31,6 +31,7 @@ const RoboTypeWorkspace = () => {
   const [prompt, setPrompt] = useState("");
   const [currentView, setCurrentView] = useState("TOP");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedGeometry, setGeneratedGeometry] = useState<any>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
 
@@ -51,31 +52,64 @@ const RoboTypeWorkspace = () => {
     };
 
     if (views[view] && controlsRef.current && cameraRef.current) {
-      const { position, target } = views[view];
-      // Smoothly animate camera to new position
-      const startPos = cameraRef.current.position.clone();
-      const endPos = new THREE.Vector3(...position);
-      const startTarget = controlsRef.current.target.clone();
-      const endTarget = new THREE.Vector3(...target);
+      const controls = controlsRef.current;
+      const camera = cameraRef.current;
+
+      // Calculate current distance from target to preserve zoom
+      const currentDistance = camera.position.distanceTo(controls.target);
+
+      // Get the direction vector for the new view
+      const { position: targetPosition } = views[view];
+      const direction = new THREE.Vector3(...targetPosition);
+      // Nudge away from exact pole to avoid getting stuck
+      const poleNudge = 0.001;
+      if (Math.abs(direction.y) > 0.999) {
+        direction.y = Math.sign(direction.y) * (0.999 - poleNudge);
+      }
+
+      // Handle edge case: if direction is zero vector (shouldn't happen), use default
+      if (direction.length() === 0) {
+        direction.set(0, 0, 1);
+      }
+
+      // Normalize and scale by current distance
+      direction.normalize();
+      const newPosition = direction.multiplyScalar(currentDistance);
+
+      // Smoothly animate to new position
+      const startPos = camera.position.clone();
+      const startTarget = controls.target.clone();
+      const endTarget = new THREE.Vector3(0, 0, 0);
 
       let progress = 0;
+      const duration = 500; // 500ms animation
+      const startTime = Date.now();
+
       const animate = () => {
-        progress += 0.05;
-        if (progress >= 1) {
-          cameraRef.current!.position.set(...position);
-          controlsRef.current!.target.set(...target);
-          controlsRef.current!.update();
-          return;
+        const elapsed = Date.now() - startTime;
+        progress = Math.min(elapsed / duration, 1);
+
+        // Ease in-out for smooth transition
+        const eased =
+          progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+        // Interpolate position
+        camera.position.lerpVectors(startPos, newPosition, eased);
+
+        // Interpolate target
+        controls.target.lerpVectors(startTarget, endTarget, eased);
+
+        // Update camera rotation to look at target
+        camera.lookAt(controls.target);
+        controls.update();
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
         }
-        cameraRef.current!.position.lerpVectors(startPos, endPos, progress);
-        controlsRef.current!.target.lerpVectors(
-          startTarget,
-          endTarget,
-          progress
-        );
-        controlsRef.current!.update();
-        requestAnimationFrame(animate);
       };
+
       animate();
     }
   };
@@ -123,8 +157,11 @@ const RoboTypeWorkspace = () => {
       if (!response.ok) throw new Error("Generation failed");
 
       const data = await response.json();
-      // TODO: Add generated 3D model to scene
-      console.log("Generated design:", data);
+      // Store the generated geometry to render in the scene
+      if (data.success && data.data?.geometry) {
+        setGeneratedGeometry(data.data.geometry);
+        console.log("Generated design:", data);
+      }
     } catch (error) {
       console.error("Error generating design:", error);
     } finally {
@@ -192,6 +229,7 @@ const RoboTypeWorkspace = () => {
             cameraRef={cameraRef}
             onViewChange={handleViewChange}
             currentView={currentView}
+            generatedGeometry={generatedGeometry}
           />
         </div>
 
