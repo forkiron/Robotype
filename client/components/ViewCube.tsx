@@ -160,7 +160,7 @@ export function ViewCube({
       style={{
         position: "absolute",
         top: "80px",
-        left: "60%",
+        left: "8%",
         width: "80px",
         height: "80px",
         pointerEvents: "auto",
