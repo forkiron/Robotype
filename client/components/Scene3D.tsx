@@ -31,6 +31,7 @@ interface Scene3DProps {
   onViewChange?: (view: string) => void;
   currentView?: string;
   generatedGeometry?: any;
+  zoomRef?: React.RefObject<number>;
 }
 
 export function Scene3D({
@@ -39,6 +40,7 @@ export function Scene3D({
   onViewChange,
   currentView,
   generatedGeometry,
+  zoomRef,
 }: Scene3DProps) {
   const orbitControlsRef = useRef<any>(null);
 
@@ -106,6 +108,13 @@ export function Scene3D({
         </mesh>
         {/* View cube camera sync component */}
         {onViewChange && <ViewCubeSync />}
+        {/* Zoom controller for continuous zoom via ref */}
+        {zoomRef && (
+          <ZoomController
+            zoomRef={zoomRef}
+            orbitControlsRef={orbitControlsRef}
+          />
+        )}
         {/* Update OrbitControls every frame for smooth damping */}
         <OrbitControlsUpdater orbitControlsRef={orbitControlsRef} />
       </Canvas>
@@ -152,5 +161,36 @@ function OrbitControlsUpdater({
       orbitControlsRef.current.update();
     }
   });
+  return null;
+}
+
+// Continuous zoom controller (uses a ref set by UI buttons)
+function ZoomController({
+  zoomRef,
+  orbitControlsRef,
+}: {
+  zoomRef: React.RefObject<number>;
+  orbitControlsRef: React.RefObject<any>;
+}) {
+  useFrame((state, delta) => {
+    const controls = orbitControlsRef.current;
+    if (!controls || !zoomRef?.current) return;
+
+    const direction = zoomRef.current; // 1 in, -1 out, 0 stop
+    if (direction === 0) return;
+
+    const speed = 50; // units per second
+    const moveDistance = direction * speed * delta;
+
+    // Move camera along its local Z
+    state.camera.translateZ(-moveDistance);
+
+    // Clamp optional (disabled)
+    // state.camera.position.z = Math.min(Math.max(state.camera.position.z, 0.1), 500);
+
+    // Update OrbitControls after moving camera
+    controls.update();
+  });
+
   return null;
 }

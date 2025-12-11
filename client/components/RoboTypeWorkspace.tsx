@@ -34,6 +34,8 @@ const RoboTypeWorkspace = () => {
   const [generatedGeometry, setGeneratedGeometry] = useState<any>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
+  // Zoom control ref: 1 = zoom in, -1 = zoom out, 0 = stop
+  const zoomRef = useRef<number>(0);
 
   // View cube click handler - will control camera via refs
   const handleViewChange = (view: string) => {
@@ -116,21 +118,39 @@ const RoboTypeWorkspace = () => {
 
   // Zoom controls
   const handleZoomIn = () => {
-    if (controlsRef.current && cameraRef.current) {
-      const direction = new THREE.Vector3();
-      cameraRef.current.getWorldDirection(direction);
-      cameraRef.current.position.add(direction.multiplyScalar(-1));
-      controlsRef.current.update();
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+    if (!controls || !camera) return;
+
+    // Prefer OrbitControls dolly for consistent zoom
+    if (typeof (controls as any).dollyIn === "function") {
+      (controls as any).dollyIn(1.1); // zoom in factor
+      controls.update();
+      return;
     }
+
+    // Fallback: move camera along its forward vector
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    camera.position.add(direction.multiplyScalar(-1));
+    controls.update();
   };
 
   const handleZoomOut = () => {
-    if (controlsRef.current && cameraRef.current) {
-      const direction = new THREE.Vector3();
-      cameraRef.current.getWorldDirection(direction);
-      cameraRef.current.position.add(direction.multiplyScalar(1));
-      controlsRef.current.update();
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+    if (!controls || !camera) return;
+
+    if (typeof (controls as any).dollyOut === "function") {
+      (controls as any).dollyOut(1.1); // zoom out factor
+      controls.update();
+      return;
     }
+
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    camera.position.add(direction.multiplyScalar(1));
+    controls.update();
   };
 
   const handleFitView = () => {
@@ -230,6 +250,7 @@ const RoboTypeWorkspace = () => {
             onViewChange={handleViewChange}
             currentView={currentView}
             generatedGeometry={generatedGeometry}
+            zoomRef={zoomRef}
           />
         </div>
 
@@ -270,7 +291,7 @@ const RoboTypeWorkspace = () => {
           {/* Zoom Controls - Vertical Layout */}
           <div className="bg-white p-1 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-1">
             <button
-              onClick={handleFitView}
+              onMouseDown={handleFitView}
               className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center"
               title="Fit View"
             >
@@ -278,7 +299,9 @@ const RoboTypeWorkspace = () => {
             </button>
             <div className="h-px bg-slate-100 my-0.5"></div>
             <button
-              onClick={handleZoomIn}
+              onMouseDown={() => (zoomRef.current = 1)}
+              onMouseUp={() => (zoomRef.current = 0)}
+              onMouseLeave={() => (zoomRef.current = 0)}
               className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center"
               title="Zoom In"
             >
@@ -286,7 +309,9 @@ const RoboTypeWorkspace = () => {
             </button>
             <div className="h-px bg-slate-100 my-0.5"></div>
             <button
-              onClick={handleZoomOut}
+              onMouseDown={() => (zoomRef.current = -1)}
+              onMouseUp={() => (zoomRef.current = 0)}
+              onMouseLeave={() => (zoomRef.current = 0)}
               className="p-2 hover:bg-slate-100 rounded text-slate-600 flex items-center justify-center"
               title="Zoom Out"
             >
