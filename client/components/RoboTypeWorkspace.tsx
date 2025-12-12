@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Scene3D } from "./Scene3D";
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { useSearchParams } from "next/navigation";
 
 import {
   Box,
@@ -26,12 +27,27 @@ import {
   Cpu,
 } from "lucide-react";
 
+type ComponentAnnotation = {
+  component_id: string;
+  label: string;
+  sizing: string;
+  note: string;
+};
+
+type GeneratedDesign = {
+  geometry: any;
+  annotations?: ComponentAnnotation[];
+};
+
 const RoboTypeWorkspace = () => {
+  const searchParams = useSearchParams();
+
   // State for UI interactivity
   const [prompt, setPrompt] = useState("");
   const [currentView, setCurrentView] = useState("TOP");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedGeometry, setGeneratedGeometry] = useState<any>(null);
+  const [designData, setDesignData] = useState<GeneratedDesign | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
   // Zoom control ref: 1 = zoom in, -1 = zoom out, 0 = stop
@@ -163,15 +179,17 @@ const RoboTypeWorkspace = () => {
   };
 
   // Handle prompt submission
-  const handleGenerate = async () => {
-    if (!prompt.trim() || isGenerating) return;
+  const handleGenerate = async (incomingPrompt?: string) => {
+    const value = (incomingPrompt ?? prompt).trim();
+    if (!value || isGenerating) return;
 
     setIsGenerating(true);
+    setError(null);
     try {
       const response = await fetch("/api/design/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt: value }),
       });
 
       if (!response.ok) throw new Error("Generation failed");
@@ -179,11 +197,21 @@ const RoboTypeWorkspace = () => {
       const data = await response.json();
       // Store the generated geometry to render in the scene
       if (data.success && data.data?.geometry) {
-        setGeneratedGeometry(data.data.geometry);
+        setDesignData({
+          geometry: data.data.geometry,
+          annotations: data.data.annotations || [],
+        });
         console.log("Generated design:", data);
+      } else {
+        setError("Generation failed: invalid response");
       }
     } catch (error) {
       console.error("Error generating design:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to generate design right now"
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -196,6 +224,17 @@ const RoboTypeWorkspace = () => {
       handleGenerate();
     }
   };
+
+  // Auto-run if a prompt is passed via query string (from landing page prompt)
+  useEffect(() => {
+    const incomingPrompt = searchParams.get("prompt");
+    if (incomingPrompt && !prompt) {
+      setPrompt(incomingPrompt);
+      handleGenerate(incomingPrompt);
+    }
+    // handleGenerate intentionally omitted to avoid re-triggering in effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, prompt]);
 
   return (
     <div className="h-screen w-full bg-[#f0f4f8] flex flex-col font-sans overflow-hidden text-slate-700">
@@ -249,8 +288,9 @@ const RoboTypeWorkspace = () => {
             cameraRef={cameraRef}
             onViewChange={handleViewChange}
             currentView={currentView}
-            generatedGeometry={generatedGeometry}
+            generatedGeometry={designData?.geometry}
             zoomRef={zoomRef}
+            animateModel={!!designData?.geometry}
           />
         </div>
 
@@ -328,14 +368,33 @@ const RoboTypeWorkspace = () => {
             </span>
             <Layers size={14} className="text-slate-400" />
           </div>
-          <div className="p-4 flex-1 overflow-y-auto space-y-6">
-            {/* Empty State / Context */}
-            <div className="text-center mt-10 opacity-50">
-              <Cpu size={32} className="mx-auto mb-2 text-slate-300" />
-              <p className="text-xs text-slate-400">
-                Select an object or describe a part to see properties.
-              </p>
-            </div>
+          <div className="p-4 flex-1 overflow-y-auto space-y-4">
+            {designData?.annotations && designData.annotations.length > 0 ? (
+              designData.annotations.map((annotation) => (
+                <div
+                  key={annotation.component_id}
+                  className="border border-slate-100 rounded-lg p-3 bg-white/70 shadow-sm"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-slate-800">
+                      {annotation.label}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {annotation.component_id}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600">{annotation.sizing}</p>
+                  <p className="text-xs text-slate-500 mt-1">{annotation.note}</p>
+                </div>
+              ))
+            ) : (
+              <div className="text-center mt-10 opacity-50">
+                <Cpu size={32} className="mx-auto mb-2 text-slate-300" />
+                <p className="text-xs text-slate-400">
+                  Generate a design to see component annotations.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -367,6 +426,12 @@ const RoboTypeWorkspace = () => {
               <ArrowRight size={16} />
             </button>
           </div>
+
+          {error && (
+            <div className="mt-2 text-center text-xs text-red-500 font-medium">
+              {error}
+            </div>
+          )}
 
           {/* Helper Text */}
           <div className="text-center mt-2">

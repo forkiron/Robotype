@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Play,
@@ -15,6 +16,22 @@ import {
 import { BlueprintScene } from "./BlueprintScene";
 
 const LandingPage = () => {
+  const router = useRouter();
+  const [prompt, setPrompt] = useState("");
+
+  const handlePromptSubmit = () => {
+    const value = prompt.trim();
+    if (!value) return;
+    router.push(`/workspace?prompt=${encodeURIComponent(value)}`);
+  };
+
+  const handlePromptKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handlePromptSubmit();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-sky-200 overflow-hidden relative">
       {/* BACKGROUND: Soft Blue Gradients & Tech Grid */}
@@ -146,6 +163,9 @@ const LandingPage = () => {
             </div>
             <input
               type="text"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={handlePromptKey}
               placeholder="Describe a mechanism (e.g., 'A 6-axis robot arm')..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all shadow-inner"
             />
@@ -157,7 +177,11 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-3 pr-2">
-            <button className="text-sm font-bold text-blue-600 hover:text-blue-700 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors">
+            <button
+              onClick={handlePromptSubmit}
+              className="text-sm font-bold text-blue-600 hover:text-blue-700 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+              disabled={!prompt.trim()}
+            >
               Export
             </button>
           </div>

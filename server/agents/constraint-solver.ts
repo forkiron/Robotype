@@ -18,6 +18,9 @@ export class ConstraintSolver {
     const warnings: string[] = [];
     const corrections: ValidatedRecipe["validation"]["corrections"] = [];
 
+    // Keep everything inside a bounded workspace cube (centered at origin)
+    const WORKSPACE_LIMIT = 50; // half-size; workspace spans [-50, 50] on each axis
+
     // Get root component
     const rootComponent = recipe.components.find(
       (c) => c.id === recipe.root_component
@@ -101,6 +104,19 @@ export class ConstraintSolver {
       }
     }
 
+    // Normalize and clamp into workspace bounds to avoid huge/out-of-plane models
+    const workspaceResult = this.enforceWorkspaceBounds(
+      recipe,
+      WORKSPACE_LIMIT
+    );
+    warnings.push(...workspaceResult.warnings);
+    corrections.push(...workspaceResult.corrections);
+
+    // Lift model so it sits on top of the workspace plane (y = 0)
+    const groundResult = this.liftToGround(recipe);
+    warnings.push(...groundResult.warnings);
+    corrections.push(...groundResult.corrections);
+
     const valid = issues.length === 0;
 
     return {
@@ -155,6 +171,171 @@ export class ConstraintSolver {
     }
 
     return issues;
+  }
+
+  /**
+   * Scale and clamp all components so they fit inside a workspace cube.
+   */
+  private enforceWorkspaceBounds(
+    recipe: DesignRecipe,
+    limit: number
+  ): {
+    warnings: string[];
+    corrections: ValidatedRecipe["validation"]["corrections"];
+  } {
+    const warnings: string[] = [];
+    const corrections: ValidatedRecipe["validation"]["corrections"] = [];
+
+    // Compute rough bounds of all components
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity;
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity;
+
+    const getSize = (c: any) => {
+      const d = c.dimensions || {};
+      const sizeX = d.length ?? d.width ?? d.radius ? (d.length ?? d.width ?? (d.radius || 0) * 2) : 0;
+      const sizeY = d.height ?? d.radius ? (d.height ?? (d.radius || 0) * 2) : 0;
+      const sizeZ = d.width ?? d.depth ?? d.radius ? (d.width ?? d.depth ?? (d.radius || 0) * 2) : 0;
+      return { sizeX, sizeY, sizeZ };
+    };
+
+    recipe.components.forEach((c) => {
+      const pos = c.relative_position || { x: 0, y: 0, z: 0 };
+      const { sizeX, sizeY, sizeZ } = getSize(c);
+      const halfX = sizeX / 2;
+      const halfY = sizeY / 2;
+      const halfZ = sizeZ / 2;
+      minX = Math.min(minX, pos.x - halfX);
+      maxX = Math.max(maxX, pos.x + halfX);
+      minY = Math.min(minY, pos.y - halfY);
+      maxY = Math.max(maxY, pos.y + halfY);
+      minZ = Math.min(minZ, pos.z - halfZ);
+      maxZ = Math.max(maxZ, pos.z + halfZ);
+    });
+
+    const spanX = maxX - minX;
+    const spanY = maxY - minY;
+    const spanZ = maxZ - minZ;
+    const maxSpan = Math.max(spanX, spanY, spanZ, 1); // avoid divide-by-zero
+
+    const allowedSpan = limit * 2;
+    const needsScale = maxSpan > allowedSpan;
+    const scale = needsScale ? allowedSpan / maxSpan : 1;
+
+    if (needsScale) {
+      warnings.push(
+        `Model scaled by ${scale.toFixed(
+          2
+        )} to fit workspace (${allowedSpan} units)`
+      );
+    }
+
+    recipe.components.forEach((c) => {
+      const pos = c.relative_position || { x: 0, y: 0, z: 0 };
+
+      // Scale positions
+      const newPos = {
+        x: pos.x * scale,
+        y: pos.y * scale,
+        z: pos.z * scale,
+      };
+
+      // Clamp to workspace cube
+      newPos.x = Math.min(Math.max(newPos.x, -limit), limit);
+      newPos.y = Math.min(Math.max(newPos.y, -limit), limit);
+      newPos.z = Math.min(Math.max(newPos.z, -limit), limit);
+
+      // Scale dimensions
+      const dims = c.dimensions || {};
+      const newDims: any = { ...dims };
+      Object.keys(newDims).forEach((key) => {
+        if (typeof newDims[key] === "number") {
+          newDims[key] = newDims[key] * scale;
+        }
+      });
+
+      // Track corrections when values changed
+      if (scale !== 1) {
+        corrections.push({
+          component_id: c.id,
+          field: "scale",
+          old_value: 1,
+          new_value: scale,
+          reason: "Scaled to fit workspace bounds",
+        });
+      }
+
+      if (
+        pos.x !== newPos.x ||
+        pos.y !== newPos.y ||
+        pos.z !== newPos.z
+      ) {
+        corrections.push({
+          component_id: c.id,
+          field: "relative_position",
+          old_value: 0,
+          new_value: 0,
+          reason: "Position clamped to workspace",
+        });
+      }
+
+      c.relative_position = newPos;
+      c.dimensions = newDims;
+    });
+
+    return { warnings, corrections };
+  }
+
+  /**
+   * Shift all components upward so the lowest point rests on y = 0 (grid top).
+   */
+  private liftToGround(
+    recipe: DesignRecipe
+  ): {
+    warnings: string[];
+    corrections: ValidatedRecipe["validation"]["corrections"];
+  } {
+    const warnings: string[] = [];
+    const corrections: ValidatedRecipe["validation"]["corrections"] = [];
+
+    const getSize = (c: any) => {
+      const d = c.dimensions || {};
+      const sizeY = d.height ?? d.radius ? (d.height ?? (d.radius || 0) * 2) : 0;
+      return { sizeY };
+    };
+
+    let minY = Infinity;
+    recipe.components.forEach((c) => {
+      const pos = c.relative_position || { x: 0, y: 0, z: 0 };
+      const { sizeY } = getSize(c);
+      const halfY = sizeY / 2;
+      minY = Math.min(minY, pos.y - halfY);
+    });
+
+    if (minY === Infinity) {
+      return { warnings, corrections };
+    }
+
+    if (minY < 0) {
+      const lift = -minY + 0.001; // small epsilon above grid
+      recipe.components.forEach((c) => {
+        const pos = c.relative_position || { x: 0, y: 0, z: 0 };
+        c.relative_position = { ...pos, y: pos.y + lift };
+      });
+      corrections.push({
+        component_id: recipe.root_component,
+        field: "relative_position.y",
+        old_value: 0,
+        new_value: lift,
+        reason: "Lifted model to sit on top of workspace plane (y=0)",
+      });
+      warnings.push("Model lifted to sit on the workspace plane (y=0).");
+    }
+
+    return { warnings, corrections };
   }
 
   private checkFitWithinParent(

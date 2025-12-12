@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
         recipe: result.recipe,
         geometry: result.geometry,
         validation: result.recipe.validation,
+        annotations: result.annotations || [],
       },
     });
   } catch (error) {

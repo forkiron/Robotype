@@ -6,6 +6,7 @@
 import { architectAgent } from "../agents/architect-agent";
 import { constraintSolver } from "../agents/constraint-solver";
 import { builderAgent } from "../agents/builder-agent";
+import { annotationAgent } from "../agents/annotation-agent";
 import { GeometryOutput } from "../../shared/types/component-types";
 
 export class DesignOrchestrator {
@@ -38,7 +39,13 @@ export class DesignOrchestrator {
       );
     }
 
-    console.log("🏗️ Step 3: Builder Agent - Generating 3D geometry...");
+    console.log("📝 Step 3: Annotation Agent - Generating notes and sizing...");
+
+    const annotations = await annotationAgent.execute(validatedRecipe);
+
+    console.log(`✅ Annotations created: ${annotations.length} entries`);
+
+    console.log("🏗️ Step 4: Builder Agent - Generating 3D geometry...");
 
     // Step 3: The Builder - Generate actual 3D geometry
     const output = await builderAgent.execute(validatedRecipe);
@@ -46,7 +53,10 @@ export class DesignOrchestrator {
       `✅ Geometry generated: ${output.geometry.meshes.length} meshes`
     );
 
-    return output;
+    return {
+      ...output,
+      annotations,
+    };
   }
 
   /**

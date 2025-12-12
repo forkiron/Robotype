@@ -11,27 +11,11 @@ export function Workplane() {
 
   return (
     <>
-      {/* Main grid on top - visible from above */}
+      {/* Main horizontal workplane on XZ (y=0) */}
       <Grid
         renderOrder={-1}
-        position={[0, 0, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        infiniteGrid={false}
-        args={[gridSize, gridSize]}
-        cellSize={cellSize}
-        cellThickness={3}
-        cellColor="#cbd5e1"
-        sectionSize={sectionSize}
-        sectionThickness={5}
-        sectionColor="#94a3b8"
-        fadeDistance={10000}
-        fadeStrength={0}
-      />
-      {/* Grid on bottom - visible from below */}
-      <Grid
-        renderOrder={-1}
-        position={[0, 0, 0]}
-        rotation={[Math.PI / 2, 0, 0]}
+        position={[0, 0, 0]} // grounded at y=0
+        rotation={[0, 0, 0]} // XZ plane (horizontal)
         infiniteGrid={false}
         args={[gridSize, gridSize]}
         cellSize={cellSize}

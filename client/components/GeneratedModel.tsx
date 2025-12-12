@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
 import * as THREE from "three";
 
 interface GeneratedModelProps {
@@ -19,13 +18,16 @@ interface GeneratedModelProps {
     };
   };
   showLabels?: boolean;
+  animate?: boolean;
 }
 
 export function GeneratedModel({
   geometry,
   showLabels = true,
+  animate = true,
 }: GeneratedModelProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const timeRef = useRef(0);
 
   useEffect(() => {
     if (!groupRef.current) return;
@@ -81,6 +83,15 @@ export function GeneratedModel({
       groupRef.current!.add(mesh);
     });
   }, [geometry, showLabels]);
+
+  // Idle animation: gentle rotate + bob to showcase the model
+  useFrame((_, delta) => {
+    if (!animate || !groupRef.current) return;
+    timeRef.current += delta;
+    const g = groupRef.current;
+    g.rotation.y += delta * 0.3;
+    g.position.y = Math.sin(timeRef.current) * 0.1;
+  });
 
   return <group ref={groupRef} />;
 }

@@ -166,6 +166,8 @@ export class BuilderAgent {
       color: this.getMaterialColor(component.material),
       metalness: component.material === "metal" ? 0.8 : 0.2,
       roughness: component.material === "metal" ? 0.2 : 0.6,
+      // Render both sides so large panels/planes are visible from inside/outside
+      side: THREE.DoubleSide,
     });
 
     const mesh = new THREE.Mesh(geometry, material);

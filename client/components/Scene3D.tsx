@@ -32,6 +32,7 @@ interface Scene3DProps {
   currentView?: string;
   generatedGeometry?: any;
   zoomRef?: React.RefObject<number>;
+  animateModel?: boolean;
 }
 
 export function Scene3D({
@@ -41,6 +42,7 @@ export function Scene3D({
   currentView,
   generatedGeometry,
   zoomRef,
+  animateModel = true,
 }: Scene3DProps) {
   const orbitControlsRef = useRef<any>(null);
 
@@ -99,13 +101,12 @@ export function Scene3D({
 
         <Workplane />
         {generatedGeometry && (
-          <GeneratedModel geometry={generatedGeometry} showLabels={true} />
+          <GeneratedModel
+            geometry={generatedGeometry}
+            showLabels={true}
+            animate={animateModel}
+          />
         )}
-        {/* Debug: Test cube to verify rendering */}
-        <mesh position={[0, 1, 0]}>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color="orange" />
-        </mesh>
         {/* View cube camera sync component */}
         {onViewChange && <ViewCubeSync />}
         {/* Zoom controller for continuous zoom via ref */}

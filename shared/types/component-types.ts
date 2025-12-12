@@ -55,6 +55,13 @@ export interface ValidatedRecipe extends DesignRecipe {
   };
 }
 
+export interface ComponentAnnotation {
+  component_id: string;
+  label: string;
+  sizing: string;
+  note: string;
+}
+
 export interface GeometryOutput {
   recipe: ValidatedRecipe;
   geometry: {
@@ -72,4 +79,5 @@ export interface GeometryOutput {
       max: [number, number, number];
     };
   };
+  annotations?: ComponentAnnotation[];
 }
