@@ -84,13 +84,13 @@ export function GeneratedModel({
     });
   }, [geometry, showLabels]);
 
-  // Idle animation: gentle rotate + bob to showcase the model
+  // Idle animation: gentle rotate to showcase the model (no vertical movement to avoid ground interference)
   useFrame((_, delta) => {
     if (!animate || !groupRef.current) return;
     timeRef.current += delta;
     const g = groupRef.current;
-    g.rotation.y += delta * 0.3;
-    g.position.y = Math.sin(timeRef.current) * 0.1;
+    // Slow, smooth rotation
+    g.rotation.y += delta * 0.2;
   });
 
   return <group ref={groupRef} />;
