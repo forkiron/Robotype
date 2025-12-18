@@ -37,7 +37,7 @@ export const BlueprintScene = () => {
           <RobotArm position={[0, -2, 0]} />
         </Float>
 
-        {/* SHADOWS */}
+        {/* SHADOWS keep soon as it is for the robot arm fix */}
         <ContactShadows
           position={[0, -2.5, 0]}
           opacity={0.4}
